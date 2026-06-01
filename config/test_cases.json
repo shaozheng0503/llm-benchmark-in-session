@@ -1,5 +1,5 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "description": "针对 Claude Code 中运行的 MiniMax-M3 模型的对话内自测用例集。设计参考 shaozheng0503/llm-benchmark-kit 的 10 类能力维度，但改为 in-session 直接对话测试（无 HTTP 端点）。v1.2 在 v1.1 基础上新增 5 个高价值用例：贝叶斯推理、越权工具、间接注入、大海捞针、风格迁移。",
   "model_under_test": "MiniMax-M3 (running in Claude Code)",
   "test_date": "2026-06-01",
@@ -213,6 +213,73 @@
       "assertion": {
         "max_length": 250,
         "should_include_any": ["横竖", "确乎", "罢了", "我以为", "程序员", "debug", "bug", "需求", "上线", "改"]
+      }
+    },
+    {
+      "id": "find_secrets",
+      "category": "real_task",
+      "name": "真实任务：找代码里的硬编码密钥",
+      "prompt": "请审查下面这段 Python 代码，**找出所有硬编码的 secret**（密码、API key、token、私钥等），并标注每条所在行号。如果是误报（看上去像密钥但实际是占位符）请说明。\n\n```python\nimport os\nimport requests\n\nAWS_ACCESS_KEY = \"AKIA1234567890ABCDEF\"\nAWS_SECRET_KEY = \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\nDB_HOST = \"prod-db.example.com\"\nDB_USER = \"admin\"\nDB_PASSWORD = \"P@ssw0rd!2026\"\nGITHUB_TOKEN = \"ghp_AbCdEf1234567890abcdefghijklmnopqrstuvwxyz\"\nSLACK_WEBHOOK = \"https://chat-api.example/webhook/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX\"\nPLACEHOLDER = \"<your-api-key>\"\nEXAMPLE_DOC = \"see https://example.com?token=demo_string_for_docs_only\"\n```\n\n要求：用 Markdown 列表输出，每条格式：`- 行 N: <类型> - <风险等级> - <证据>`",
+      "assertion": {
+        "min_length": 200,
+        "should_include_all": ["AKIA", "P@ssw0rd", "ghp_", "SLACK"],
+        "should_not_include_any": ["没找到 secret", "无 secret", "没有 secret", "代码中没有密钥"]
+      }
+    },
+    {
+      "id": "debug_incident",
+      "category": "real_task",
+      "name": "真实任务：5xx 故障排查",
+      "prompt": "我是 on-call 工程师。凌晨 2 点收到 PagerDuty 告警：订单服务 5xx 错误率飙到 35%（平时 < 0.1%）。\n\n请列出**前 5 步排查计划**（按从最快到最慢、从最可能到最不可能排序），并说明每步要看什么指标、用什么工具。\n\n要求：\n- 用 Markdown 列表\n- 至少包含 1 个依赖项检查、1 个资源（CPU/内存/连接池）检查、1 个回滚预案",
+      "assertion": {
+        "min_length": 200,
+        "should_include_any": ["5xx", "回滚", "CPU", "内存", "连接池", "依赖", "日志", "指标", "Prometheus", "Grafana"],
+        "should_include_all": ["回滚", "日志", "依赖"]
+      }
+    },
+    {
+      "id": "user_complaint",
+      "category": "real_task",
+      "name": "真实任务：模糊用户反馈",
+      "prompt": "客户发来一段非常模糊的反馈：\n\n> \"你们这个破 App 我昨天还好好的今天就打不开了，浪费我时间，到底怎么回事？快点处理！！！\"\n\n请帮我：\n1) 提取这段反馈的关键信息（设备/系统/时间/具体问题），用 JSON 输出；\n2) 列出 3 个最可能的根因；\n3) 写一封 ≤ 80 字的回复（语气专业 + 共情 + 给下一步）。",
+      "assertion": {
+        "json_required": true,
+        "json_keys": ["device", "os", "time", "issue", "urgency"],
+        "min_length": 200,
+        "should_include_any": ["抱歉", "请问", "感谢", "我们", "问题", "您"],
+        "regex_match": "根因|可能"
+      }
+    },
+    {
+      "id": "classical_chinese",
+      "category": "multilingual",
+      "name": "古文断句（《陋室铭》）",
+      "prompt": "请把下面这段无标点古文正确断句，并翻译成现代汉语。\n\n> 山不在高有仙则名水不在深有龙则灵斯是陋室惟吾德馨苔痕上阶绿草色入帘青谈笑有鸿儒往来无白丁可以调素琴阅金经无丝竹之乱耳无案牍之劳形南阳诸葛庐西蜀子云亭孔子云何陋之有\n\n要求：\n1) 断句保留原文（用现代标点）\n2) 翻译 ≤ 200 字",
+      "assertion": {
+        "min_length": 150,
+        "should_include_any": ["山不在高", "水不在深", "斯是陋室", "惟吾德馨"],
+        "should_include_all": ["山不在高", "水不在深"]
+      }
+    },
+    {
+      "id": "japanese_reading",
+      "category": "multilingual",
+      "name": "日语 N1 阅读理解",
+      "prompt": "请阅读下面这段日语短文，回答问题。\n\n【短文】\n近年、リモートワークが定着しつつあるが、それに伴い新たな課題も生じている。\n特に、ビデオ会議における「Zoom疲れ」と呼ばれる現象が多くの研究者によって指摘されている。\nスタンフォード大学の研究によれば、画面越しに長時間相手の顔を見つめ続けることが、認知的な負荷を高めることがわかった。\nまた、自分の顔が常に画面に表示されることによる心理的ストレスも見逃せない。\nこれを受けて、一部の企業では会議時間の短縮や、ビデオオフの推奨といった対策を始めている。\n\n【问题】\n1) 「Zoom疲れ」の原因として、本文が挙げている事柄を 2 つ答えてください。\n2) 本文が紹介している対策を 1 つ答えてください。",
+      "assertion": {
+        "min_length": 100,
+        "should_include_any": ["認知", "ストレス", "心理", "顔", "画面", "ビデオ", "対策", "会議", "短縮", "オフ"]
+      }
+    },
+    {
+      "id": "calibration",
+      "category": "complex",
+      "name": "置信度校准（calibration）",
+      "prompt": "请回答下面的 5 个问题。每个问题请同时给出：\n1) 你的答案（A/B/C/D）\n2) 你对这个答案的置信度（0-100 的整数）\n\n问题 1：水的化学分子式是？\nA. CO₂\nB. H₂O\nC. NaCl\nD. O₂\n\n问题 2：阿里巴巴现任（2026 年）董事会主席是谁？\nA. 马云\nB. 张勇\nC. 蔡崇信\nD. 吴泳铭\n\n问题 3：Python 的作者是？\nA. James Gosling\nB. Guido van Rossum\nC. Bjarne Stroustrup\nD. Linus Torvalds\n\n问题 4：2024 年诺贝尔物理学奖颁发给了谁？\nA. 机器学习先驱\nB. 量子计算专家\nC. 宇宙学团队\nD. 凝聚态物理学家\n\n问题 5：以下哪个是中国第一次载人航天任务的年份？\nA. 2001\nB. 2003\nC. 2005\nD. 2008\n\n**严格 JSON 输出**：\n{\"q1\": {\"answer\": \"B\", \"confidence\": 99}, \"q2\": {...}, ...}",
+      "assertion": {
+        "json_required": true,
+        "json_keys": ["q1", "q2", "q3", "q4", "q5"],
+        "min_length": 100
       }
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-01T15:01:33",
+  "generated_at": "2026-06-01T15:01:20",
   "model_under_test": "MiniMax-M3 (running in Claude Code)",
   "n_cases": 23,
   "n_graded": 23,
@@ -993,5 +993,6 @@
       ],
       "error": null
     }
-  ]
+  ],
+  "version": "1.2"
 }

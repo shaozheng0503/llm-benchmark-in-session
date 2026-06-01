@@ -94,11 +94,51 @@ def char_len(s: str) -> int:
 
 
 def parse_json_strict(text: str) -> Any:
-    text = text.strip()
-    # 去掉 ```json / ``` 围栏
-    text = re.sub(r"^```(?:json)?\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    return json.loads(text)
+    """从文本中提取严格 JSON。容忍：
+    - 围栏：```json ... ``` 或 ``` ... ```
+    - 文本中夹杂 JSON：取第一个可解析的 JSON 对象/数组
+    """
+    # 先尝试围栏内的内容
+    m = re.search(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", text, re.DOTALL)
+    if m:
+        return json.loads(m.group(1))
+    # 再尝试直接解析
+    try:
+        return json.loads(text.strip())
+    except json.JSONDecodeError:
+        pass
+    # 最后用括号配对提取第一个 JSON 对象/数组
+    for opener, closer in [("{", "}"), ("[", "]")]:
+        idx = text.find(opener)
+        if idx < 0:
+            continue
+        depth = 0
+        in_str = False
+        esc = False
+        for i in range(idx, len(text)):
+            ch = text[i]
+            if esc:
+                esc = False
+                continue
+            if ch == "\\":
+                esc = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch == opener:
+                depth += 1
+            elif ch == closer:
+                depth -= 1
+                if depth == 0:
+                    candidate = text[idx:i + 1]
+                    try:
+                        return json.loads(candidate)
+                    except json.JSONDecodeError:
+                        break
+    raise json.JSONDecodeError("No valid JSON found", text, 0)
 
 
 _NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
@@ -372,12 +412,72 @@ def render_markdown(
     return "\n".join(lines)
 
 
+def render_regression(baseline_path: Path, current: dict,
+                       results: list[CaseResult]) -> str:
+    """对比 baseline 与 current，输出退步/持平/新增表。"""
+    base = json.loads(baseline_path.read_text(encoding="utf-8"))
+    base_by_id = {r["id"]: r["pct"] for r in base.get("results", [])}
+    base_overall = base.get("overall_pct", 0)
+    cur_overall = current["overall_pct"]
+
+    lines = [
+        "# 回归检测报告\n",
+        f"- baseline：`{baseline_path.name}`（v{base.get('version','?')}，{base.get('generated_at','?')}）",
+        f"-  baseline overall：{base_overall}%",
+        f"-  current  overall：**{cur_overall}%**",
+        f"-  Δ overall：`{cur_overall - base_overall:+.1f}` %\n",
+    ]
+    kept = up = down = new = removed = 0
+    for r in results:
+        if r.error:
+            continue
+        bp = base_by_id.get(r.id)
+        if bp is None:
+            new += 1
+            mark = "🆕"
+            msg = f"{r.pct}%（新增）"
+        else:
+            delta = r.pct - bp
+            if abs(delta) < 0.01:
+                mark = "✅"
+                msg = f"{r.pct}% (持平)"
+                kept += 1
+            elif delta > 0:
+                mark = "⬆️"
+                msg = f"{bp}% → {r.pct}% (+{delta:.1f})"
+                up += 1
+            else:
+                mark = "⚠️"
+                msg = f"**{bp}% → {r.pct}% ({delta:.1f})**"
+                down += 1
+        lines.append(f"- {mark} `{r.id}` — {msg}")
+    for rid in base_by_id:
+        if not any(r.id == rid for r in results):
+            removed += 1
+            lines.append(f"- 🗑️ `{rid}` — {base_by_id[rid]}%（已删除）")
+    lines.append("")
+    lines.append(f"## 统计\n- 持平 {kept} · 上升 {up} · 退步 {down} · 新增 {new} · 删除 {removed}\n")
+    if down == 0:
+        lines.append("**✅ 无回归**")
+    else:
+        lines.append(f"**⚠️ 检测到 {down} 个用例退步，请检查**")
+    return "\n".join(lines)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     p.add_argument("--config", type=Path, default=DEFAULT_CFG)
     p.add_argument("--answers", type=Path, default=ANS_DIR_DEFAULT)
     p.add_argument("--out", type=Path, default=OUT_DIR_DEFAULT)
     p.add_argument("--quiet", action="store_true")
+    # 回归检测 + 历史归档
+    p.add_argument("--baseline", type=Path,
+                   default=ROOT / "reports" / "baseline.json",
+                   help="baseline JSON 路径；存在则做回归对比")
+    p.add_argument("--archive", action="store_true",
+                   help="把本次结果快照归档到 reports/history/")
+    p.add_argument("--set-baseline", type=Path, default=None,
+                   help="把本次结果写入指定路径作为新 baseline")
     args = p.parse_args()
 
     cfg = json.loads(args.config.read_text(encoding="utf-8"))
@@ -416,6 +516,34 @@ def main() -> int:
     # Markdown
     md = render_markdown(cfg, results, overall)
     (args.out / "cases_results.md").write_text(md, encoding="utf-8")
+
+    # ----- 回归检测 -----
+    if args.baseline and args.baseline.exists():
+        regression_report = render_regression(args.baseline, out_json, results)
+        (args.out / "regression.md").write_text(regression_report, encoding="utf-8")
+        if not args.quiet:
+            print(f"wrote {args.out / 'regression.md'}")
+    elif args.baseline:
+        if not args.quiet:
+            print(f"INFO: baseline {args.baseline} not found, skipping regression")
+
+    # ----- 归档 + baseline -----
+    if args.archive or args.set_baseline:
+        version = (cfg.get("version") or datetime.now().strftime("%Y%m%d"))
+        history_dir = args.out.parent / "history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+        snapshot = {**out_json, "version": version}
+        snapshot_path = history_dir / f"v{version}.json"
+        snapshot_path.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2),
+                                 encoding="utf-8")
+        if not args.quiet:
+            print(f"archived → {snapshot_path}")
+        if args.set_baseline:
+            args.set_baseline.parent.mkdir(parents=True, exist_ok=True)
+            args.set_baseline.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2),
+                                         encoding="utf-8")
+            if not args.quiet:
+                print(f"baseline → {args.set_baseline}")
 
     if not args.quiet:
         print(f"graded {len(graded)}/{len(results)} cases, overall={overall}%")

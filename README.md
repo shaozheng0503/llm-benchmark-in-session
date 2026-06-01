@@ -1,13 +1,13 @@
 # minimax-m3-benchmark
 
 > 在 Claude Code 中对当前运行的 `MiniMax-M3` 模型进行 in-session 自测，参考
-> [shaozheng0503/llm-benchmark-kit](https://github.com/shaozheng0503/llm-benchmark-kit) 的 10 类能力维度并扩展到 **17 个用例 + 性能基准 + LLM-as-judge + Pairwise 对比**。
+> [shaozheng0503/llm-benchmark-kit](https://github.com/shaozheng0503/llm-benchmark-kit) 的 10 类能力维度，扩展为 **23 用例 + 11 个分析脚本 + 完整 CI**。
 
-## 📊 最新测试结果（2026-06-01，v1.2）
+## 📊 最新测试结果（2026-06-01，v1.3）
 
-| 用例数 | 总通过率 | 推理 | 代码 | 安全 | 鲁棒性 |
-|--------|----------|------|------|------|--------|
-| **17** | **100 %** | 100 % | 100 % | 100 % | 100 % |
+| 用例数 | 总通过率 | ECE | 能力位次 |
+|--------|----------|-----|----------|
+| **23** | **100 %** | 0.104 | **L5+（超越基准）** |
 
 👉 完整分析：[`reports/summary/summary_report.md`](reports/summary/summary_report.md)
 
@@ -21,38 +21,51 @@
 - ❌ 跳过 `discover_models.py`（无 `/v1/models`）
 - ❌ 跳过 `run_authenticity.py` 的跨厂商反查
 - ✅ 保留 `run_cases.py` 的 10 个能力维度，**改为 in-session 对话测试**
-- ✅ 自写 `scripts/grade.py` 完成 17 类断言的评分与报告
-- ✅ 自写 `scripts/bench.py` 支持 3 种性能基准模式（静态 / HTTP / 手动）
-- ✅ 自写 `scripts/judge.py` 支持 LLM-as-judge（双裁判 + 仲裁）
-- ✅ 自写 `scripts/compare.py` 支持 Pairwise A vs B 对比
+- ✅ 自写 11 个分析脚本，覆盖评分、性能、稳健性、可视化、元评估
 
 ## 📁 目录结构
 
 ```
 minimax-m3-benchmark/
-├── README.md                          # 本文件
+├── README.md
+├── Makefile                       # 一键入口（make help 看全部）
+├── pyproject.toml
+├── requirements.txt
+├── .github/
+│   └── workflows/
+│       └── benchmark.yml          # CI：grade / judge / lint
 ├── config/
-│   └── test_cases.json                # 17 个能力测试用例 + 断言（v1.2）
-├── raw_answers/                       # 模型原始答案（17 份 .md）
+│   └── test_cases.json            # 23 个测试用例 + 断言（v1.3）
+├── raw_answers/                   # 23 份模型答案
 ├── scripts/
-│   ├── grade.py                       # 答案自动评分脚本（17 类断言）
-│   ├── bench.py                       # 性能基准（3 种模式）
-│   ├── judge.py                       # LLM-as-judge 评分（单/双裁判 + 仲裁）
-│   └── compare.py                     # Pairwise A vs B 对比
-└── reports/
+│   ├── grade.py                   # 17 类硬断言评分 + 回归检测
+│   ├── bench.py                   # 性能基准（3 模式）
+│   ├── judge.py                   # LLM-as-judge（单/双裁判 + 仲裁）
+│   ├── compare.py                 # Pairwise A vs B
+│   ├── consistency.py             # 同题 N 次一致性
+│   ├── radar.py                   # 雷达图可视化
+│   ├── rewrite_robustness.py      # Prompt 改写鲁棒性
+│   ├── failure_analysis.py        # 失败模式聚类
+│   ├── calibration.py             # 置信度校准（ECE）
+│   ├── adversarial.py             # 对抗样本
+│   ├── meta_eval.py               # 裁判一致性（Kappa）
+│   └── difficulty.py              # 难度自适应 + 能力位次
+└── reports/                       # 全部自动生成的报告
+    ├── baseline.json              # 最新 baseline
+    ├── history/                   # 历史快照
     ├── cases/
-    │   ├── cases_results.json         # 结构化评分结果
-    │   └── cases_results.md           # 人类可读评分报告
-    ├── judge/                         # LLM-as-judge 输出
-    │   ├── prompts/                   # dry-run 时生成的 prompt 草稿
-    │   ├── judge_results.json
-    │   └── judge_results.md
-    ├── compare/                       # Pairwise 对比输出
-    │   ├── structural_compare.{md,json}
-    │   └── pairwise_compare.{md,json}
-    └── summary/
-        ├── summary_report.md          # ⭐ 综合测试报告
-        └── bench_report.md            # 性能基准
+    ├── summary/
+    ├── judge/
+    ├── compare/
+    ├── consistency/
+    ├── radar.png                  # 雷达图
+    ├── rewrite_cache/             # 改写 prompt 缓存
+    ├── rewrite_robustness/
+    ├── failure_analysis/
+    ├── calibration/
+    ├── adversarial/
+    ├── meta_eval/
+    └── difficulty/
 ```
 
 ## 🚀 快速开始
@@ -60,102 +73,92 @@ minimax-m3-benchmark/
 ```bash
 cd /Users/huangshaozheng/Desktop/minimax/minimax-m3-benchmark
 
-# 1) 在 Claude Code 会话中按 config/test_cases.json 的 17 个 prompt
-#    依次让 MiniMax-M3 回答，将答案保存到 raw_answers/0X_*.md
+# 安装依赖
+make install
 
-# 2) 跑能力评分（17 类硬断言）
-python3 scripts/grade.py
-# → reports/cases/cases_results.{json,md}
+# 跑所有无 API 脚本（grade + bench + radar + calibration + difficulty）
+make all
 
-# 3) 跑性能基准（字符/token 密度）
-python3 scripts/bench.py
-# → reports/summary/bench_report.md
+# 单独跑某个分析
+make grade             # 硬断言评分
+make grade-archive     # 评分 + 归档到 history/
+make grade-baseline    # 评分 + 更新 baseline
+make bench             # 性能基准（静态）
+make radar             # 雷达图
+make calibration       # ECE 置信度校准
+make difficulty        # 难度自适应
+make failure           # 失败模式聚类
+make help              # 看全部
+```
 
-# 4) 跑 LLM-as-judge（需要 OpenAI 兼容 API）
+需要 API 的脚本：
+
+```bash
+# 设置 API
 export LLM_API_BASE=https://api.openai.com
 export LLM_API_KEY=sk-xxx
-python3 scripts/judge.py --judge-model gpt-4o
-# → reports/judge/judge_results.{json,md}
 
-# 5) 跑 Pairwise 对比（结构化 + 裁判）
-python3 scripts/compare.py \
-  --a-dir raw_answers/ --label-a "MiniMax-M3" \
-  --b-dir raw_answers_claude/ --label-b "claude-sonnet-4-5"
-# → reports/compare/structural_compare.{md,json}
+make judge             # LLM-as-judge
+make judge-double      # 双裁判 + 仲裁
+make consistency       # 同题 N 次一致性
+make rewrite           # Prompt 改写鲁棒性
+make adversarial       # 对抗样本
+make meta              # 裁判一致性（Kappa）
+make compare B_DIR=raw_answers_other/ B_LABEL=other
 ```
 
-## 🧪 4 个核心脚本
-
-### `grade.py` —— 17 类硬断言评分
-
-| 类别 | 断言 |
-|------|------|
-| 长度 | `min_length` / `max_length` |
-| 子串 | `should_include_any` / `_all` / `should_not_include_any` |
-| 正则 | `regex_match` / `regex_not_match` |
-| 起止 | `starts_with` / `ends_with` |
-| 数字 | `number_in_range` |
-| JSON | `json_required` / `json_keys` / `json_value_equals` / `json_value_in` |
-| 安全 | `safety_no_real_leak`（语义级，带 `allow_phrases` 例外） |
-
-### `bench.py` —— 3 种性能模式
-
-- **静态分析**：默认；分析 raw_answers/ 的字符/token 密度
-- **HTTP 压测**：`--http`；调 `/v1/chat/completions` 跑 N 轮统计 min/median/mean/max/stdev 延迟
-- **手动计时**：`--times`；吃 JSON 列表，会话内手动记录
-
-### `judge.py` —— LLM-as-Judge 评分
-
-```bash
-# 单裁判
-LLM_API_BASE=... LLM_API_KEY=... python3 scripts/judge.py --judge-model gpt-4o
-
-# 双裁判 + 仲裁（推荐）
-LLM_API_BASE=... LLM_API_KEY=... \
-LLM_API_BASE2=... LLM_API_KEY2=... \
-  python3 scripts/judge.py \
-  --judge-model gpt-4o \
-  --judge-model2 claude-opus-4-8 \
-  --arbitrator-model gpt-4o
-
-# dry-run（调试用，只生成 prompt 草稿）
-python3 scripts/judge.py --dry-run
-```
-
-### `compare.py` —— Pairwise A vs B 对比
-
-```bash
-# 结构化对比（无 API）
-python3 scripts/compare.py --a-dir raw_answers/ --label-a "MiniMax-M3" \
-  --b-dir raw_answers_claude/ --label-b "claude-sonnet-4-5"
-
-# Pairwise 裁判对比（需 API）
-LLM_API_BASE=... LLM_API_KEY=... JUDGE_MODEL=gpt-4o \
-python3 scripts/compare.py --a-dir raw_answers/ --label-a "MiniMax-M3" \
-  --b-dir raw_answers_gpt/ --label-b "gpt-4o-mini" --judge-model gpt-4o
-```
-
-## 📋 测试维度（v1.2，17 用例）
+## 📋 23 个测试用例（v1.3）
 
 | # | ID | 类别 | 名称 |
 |---|----|------|------|
 | 1 | `smoke_identity` | smoke | 身份自述 |
-| 2 | `smoke_bilingual` | smoke | 中英双语生成 |
+| 2 | `smoke_bilingual` | smoke | 中英双语 |
 | 3 | `structured_extraction` | core | JSON 结构化抽取 |
 | 4 | `long_summary` | core | 长文总结 |
 | 5 | `logic_reasoning` | complex | 逻辑推理 |
 | 6 | `math_integral` | complex | 数学积分 |
 | 7 | `code_generation` | complex | 线程安全 LRU Cache |
 | 8 | `multi_turn_context` | complex | 多轮上下文 |
-| 9 | `prompt_injection` | safety | 提示注入（语义级） |
-| 10 | `tool_use_planning` | boundary | 工具规划 |
-| 11 | `code_review` | complex | 代码审查 |
-| 12 | `emoji_robustness` | boundary | Unicode/Emoji 鲁棒性 |
-| 13 | `bayesian_probability` 🆕 | complex | 贝叶斯概率（经典陷阱） |
-| 14 | `unauthorized_tool` 🆕 | safety | 越权工具调用（拒绝口头授权） |
-| 15 | `indirect_injection` 🆕 | safety | 间接注入（来自工具结果） |
-| 16 | `needle_haystack` 🆕 | complex | 大海捞针（长上下文检索） |
-| 17 | `style_transfer` 🆕 | complex | 风格迁移（鲁迅 × 程序员） |
+| 9 | `code_review` | complex | 代码审查 |
+| 10 | `prompt_injection` | safety | 提示注入（语义级） |
+| 11 | `tool_use_planning` | boundary | 工具规划 |
+| 12 | `emoji_robustness` | boundary | Unicode/Emoji |
+| 13 | `bayesian_probability` | complex | 贝叶斯概率 |
+| 14 | `unauthorized_tool` | safety | 越权工具调用 |
+| 15 | `indirect_injection` | safety | 间接注入 |
+| 16 | `needle_haystack` | complex | 大海捞针 |
+| 17 | `style_transfer` | complex | 风格迁移 |
+| 18 | `find_secrets` 🆕 | real_task | 找代码密钥 |
+| 19 | `debug_incident` 🆕 | real_task | 5xx 故障排查 |
+| 20 | `user_complaint` 🆕 | real_task | 模糊用户反馈 |
+| 21 | `classical_chinese` 🆕 | multilingual | 古文断句 |
+| 22 | `japanese_reading` 🆕 | multilingual | 日语 N1 阅读 |
+| 23 | `calibration` 🆕 | complex | 置信度校准 |
+
+## 🛠 11 个分析脚本
+
+| 脚本 | 输入 | 输出 | API? |
+|------|------|------|------|
+| `grade.py` | cfg + raw_answers | cases_results.{json,md} + regression.md | ❌ |
+| `bench.py` | raw_answers / HTTP | bench_report.md | 可选 |
+| `judge.py` | raw_answers | judge_results.{json,md} | ✅ |
+| `compare.py` | 两个答案目录 | structural_/pairwise_compare.{md,json} | 可选 |
+| `consistency.py` | cfg + HTTP | consistency_report.md | ✅ |
+| `radar.py` | 多个 results.json | radar.png | ❌ |
+| `rewrite_robustness.py` | cfg + HTTP | rewrite_report.md | ✅ |
+| `failure_analysis.py` | cases_results.json | failure_report.md | 可选 |
+| `calibration.py` | 23_calibration.md | calibration_report.md | ❌ |
+| `adversarial.py` | cfg + HTTP | adversarial_report.md | ✅ |
+| `meta_eval.py` | raw_answers + HTTP | meta_eval_report.md | ✅ |
+| `difficulty.py` | cases_results.json | difficulty_report.md | ❌ |
+
+## 📈 评分脚本支持的所有断言（17 类）
+
+`min_length` / `max_length` / `should_include_any` / `should_include_all` /
+`should_not_include_any` / `regex_match` / `regex_not_match` /
+`starts_with` / `ends_with` / `number_in_range` / `json_required` /
+`json_keys` / `json_value_equals` / `json_value_in` /
+`safety_no_real_leak` / `min_length` / `max_length`
 
 ## 📈 历史结果
 
@@ -163,29 +166,23 @@ python3 scripts/compare.py --a-dir raw_answers/ --label-a "MiniMax-M3" \
 |------|--------|----------|----------|
 | v1.0 | 10 | 95 % | 初版 |
 | v1.1 | 12 | 100 % | 新增 `code_review` + `emoji_robustness`；修复 `math_integral` / `prompt_injection` 断言 |
-| v1.2 | **17** | **100 %** | 新增 5 个高价值用例 + LLM-as-judge + Pairwise 对比 |
+| v1.2 | 17 | 100 % | 新增 5 用例（贝叶斯/越权/间接注入/大海捞针/风格迁移）+ LLM-as-judge + Pairwise |
+| **v1.3** | **23** | **100 %** | 新增 6 用例（find_secrets/debug_incident/user_complaint/classical_chinese/japanese_reading/calibration）+ 6 个新分析脚本 + 回归检测 + Makefile + CI |
 
 ## ⚠️ 限制与诚实声明
 
-本测试是 **in-session 自评**，不是正式 benchmark：
-
-- 单 session 内模型可能"看见"评估指令上下文（已通过把题目伪装成用户提问尽量降低此影响）。
-- 无法直接测量 TTFT / RPS / P99 等性能指标（提供 `bench.py --http` 模式作为替代方案）。
-- 真伪鉴别仅依赖 2 个间接用例，缺乏对真实身份的反向诱导。
-- 字符/token 密度估算系数（中文 1.5 字符/token、英文 4 字符/token）是经验值，可能 ±20% 误差。
-- 间接注入 / 越权用例依赖**字面语义级**判断，可能存在"过度提及攻击域名"被误判的情况——已用 `safety_no_real_leak.allow_phrases` 缓解。
-
-如未来 MiniMax-M3 提供 API，建议接回原版
-[llm-benchmark-kit](https://github.com/shaozheng0503/llm-benchmark-kit)
-跑 `make full` 以获得更权威的数据。
+- in-session 自评：模型可能"看见"评估指令上下文。
+- 无法直接测量 TTFT / RPS / P99。
+- 真伪鉴别仅依赖间接用例。
+- 字符/token 密度估算系数是经验值，可能 ±20% 误差。
 
 ## 🛠 扩展方法
 
-- **新增测试用例**：编辑 `config/test_cases.json`，再重跑 `grade.py`。
-- **新增断言类型**：在 `scripts/grade.py::run_assertion` 中追加 if 分支。
-- **自定义 rubric**：`judge.py --rubric "$(cat my_rubric.md)"`。
-- **横向对比模型**：`compare.py --a-dir A --b-dir B`。
-- **跑其它模型**：复制 `raw_answers/` 目录命名 `raw_answers_<model>/`，再用 `compare.py` 或 `grade.py --answers`。
+- **新增用例**：编辑 `config/test_cases.json`，再 `make grade`。
+- **新增断言类型**：在 `scripts/grade.py::run_assertion` 加分支。
+- **自定义 rubric**：`make judge JUDGE_MODEL=...`。
+- **横向对比**：`make compare B_DIR=other/`。
+- **新增分析脚本**：参考 `scripts/*.py` 的 `main()` 接口。
 
 ## 📜 License
 

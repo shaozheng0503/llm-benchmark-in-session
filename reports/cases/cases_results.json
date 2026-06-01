@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-01T15:19:57",
+  "generated_at": "2026-06-01T15:21:49",
   "model_under_test": "MiniMax-M3 (running in Claude Code)",
   "n_cases": 23,
   "n_graded": 23,
@@ -704,13 +704,13 @@
       "score": 3,
       "total": 3,
       "pct": 100.0,
-      "answer_chars": 1092,
+      "answer_chars": 1064,
       "checks": [
         {
           "rule": "min_length",
           "passed": true,
           "expected": 200,
-          "actual": 1092
+          "actual": 1064
         },
         {
           "rule": "should_include_all",
@@ -719,13 +719,13 @@
             "AKIA",
             "P@ssw0rd",
             "ghp_",
-            "SLACK"
+            "Webhook"
           ],
           "hit": [
             "AKIA",
             "P@ssw0rd",
             "ghp_",
-            "SLACK"
+            "Webhook"
           ],
           "missed": []
         },

@@ -26,9 +26,13 @@ st.set_page_config(
 
 
 def load_json(path: Path):
-    if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
-    return None
+    if not path.exists():
+        return None
+    text = path.read_text(encoding="utf-8")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None  # MD 等非 JSON 文件直接返回 None
 
 
 def list_versions() -> list[Path]:
@@ -102,8 +106,12 @@ def generate_summary(data, all_data):
     best_cat = max(cat_avg, key=cat_avg.get) if cat_avg else "—"
     worst_cat = min(cat_avg, key=cat_avg.get) if cat_avg else "—"
     s1 = f"**{n_graded} 个用例总体得分 {overall}%**（{trend_msg or '首次跑测'}）。"
-    s2 = f"**最强项：{best_cat}**（{cat_avg.get(best_cat, 0):.0f}%）。"
-    s3 = f"**待提升：{worst_cat}**（{cat_avg.get(worst_cat, 0):.0f}%）"
+    if cat_avg.get(best_cat, 0) == cat_avg.get(worst_cat, 0):
+        s2 = f"**全维度 100%**：7 大类别无短板。"
+        s3 = f"**建议**：加入 L4/L5 难题（奥数/系统设计）以暴露能力上限。"
+    else:
+        s2 = f"**最强项：{best_cat}**（{cat_avg.get(best_cat, 0):.0f}%）。"
+        s3 = f"**待提升：{worst_cat}**（{cat_avg.get(worst_cat, 0):.0f}%）"
     return f"{s1}\n\n{s2}\n\n{s3}"
 
 

@@ -219,7 +219,7 @@
       "id": "find_secrets",
       "category": "real_task",
       "name": "真实任务：找代码里的硬编码密钥",
-      "prompt": "请审查下面这段 Python 代码，**找出所有硬编码的 secret**（密码、API key、token、私钥等），并标注每条所在行号。如果是误报（看上去像密钥但实际是占位符）请说明。\n\n```python\nimport os\nimport requests\n\nAWS_ACCESS_KEY = \"AKIA1234567890ABCDEF\"\nAWS_SECRET_KEY = \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\nDB_HOST = \"prod-db.example.com\"\nDB_USER = \"admin\"\nDB_PASSWORD = \"P@ssw0rd!2026\"\nGITHUB_TOKEN = \"ghp_AbCdEf1234567890abcdefghijklmnopqrstuvwxyz\"\nSLACK_WEBHOOK = \"https://chat-api.example/webhook/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX\"\nPLACEHOLDER = \"<your-api-key>\"\nEXAMPLE_DOC = \"see https://example.com?token=demo_string_for_docs_only\"\n```\n\n要求：用 Markdown 列表输出，每条格式：`- 行 N: <类型> - <风险等级> - <证据>`",
+      "prompt": "请审查下面这段 Python 代码，**找出所有硬编码的 secret**（密码、API key、token、私钥等），并标注每条所在行号。如果是误报（看上去像密钥但实际是占位符）请说明。\n\n```python\nimport os\nimport requests\n\nAWS_ACCESS_KEY = \"AKIA1234567890ABCDEF\"\nAWS_SECRET_KEY = \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\nDB_HOST = \"prod-db.example.com\"\nDB_USER = \"admin\"\nDB_PASSWORD = \"P@ssw0rd!2026\"\nGITHUB_TOKEN = \"ghp_AbCdEf1234567890abcdefghijklmnopqrstuvwxyz\"\nSLACK_WEBHOOK = \"https://hooks.slack.example/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX\"\nPLACEHOLDER = \"<your-api-key>\"\nEXAMPLE_DOC = \"see https://example.com?token=demo_string_for_docs_only\"\n```\n\n要求：用 Markdown 列表输出，每条格式：`- 行 N: <类型> - <风险等级> - <证据>`",
       "assertion": {
         "min_length": 200,
         "should_include_all": ["AKIA", "P@ssw0rd", "ghp_", "SLACK"],

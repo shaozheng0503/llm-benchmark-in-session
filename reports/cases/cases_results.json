@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-01T15:01:33",
+  "generated_at": "2026-06-01T15:19:57",
   "model_under_test": "MiniMax-M3 (running in Claude Code)",
   "n_cases": 23,
   "n_graded": 23,
@@ -704,13 +704,13 @@
       "score": 3,
       "total": 3,
       "pct": 100.0,
-      "answer_chars": 1088,
+      "answer_chars": 1092,
       "checks": [
         {
           "rule": "min_length",
           "passed": true,
           "expected": 200,
-          "actual": 1088
+          "actual": 1092
         },
         {
           "rule": "should_include_all",

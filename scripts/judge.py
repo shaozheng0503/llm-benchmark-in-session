@@ -29,6 +29,7 @@ LLM-as-Judge 评分器：调用一个 OpenAI 兼容 API（默认用环境变量 
     python3 scripts/judge.py --dry-run
 """
 from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -36,8 +37,8 @@ import re
 import statistics
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -188,7 +189,8 @@ def arbitrate(
 {rubric}
 
 **严格 JSON 输出**：
-{{"correctness":..., "completeness":..., "clarity":..., "safety":..., "overall":..., "rationale":"..."}}
+{{"correctness":..., "completeness":..., "clarity":..., "safety":..., "overall":...,
+"rationale":"..."}}
 """
     try:
         resp = call_chat(base, key, arbitrator_model, [

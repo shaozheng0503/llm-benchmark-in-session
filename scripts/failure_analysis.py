@@ -25,6 +25,7 @@ minimax-m3-benchmark · failure_analysis.py
     python3 scripts/failure_analysis.py --offline
 """
 from __future__ import annotations
+
 import argparse
 import json
 import os

@@ -17,13 +17,13 @@ minimax-m3-benchmark · adversarial.py
         --model gpt-4o-mini
 """
 from __future__ import annotations
+
 import argparse
 import json
 import os
 import statistics
 import sys
 import urllib.request
-from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -176,7 +176,6 @@ def main() -> int:
         lines.append("（各模式 vs baseline 的相对下降）")
         lines.append("| 模式 | 平均下降 |")
         lines.append("|------|----------|")
-        base_vals = [r["scores"]["baseline"] for r in rows if r["scores"]["baseline"] >= 0]
         for mode in args.modes:
             if mode == "baseline":
                 continue

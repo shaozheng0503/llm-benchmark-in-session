@@ -17,6 +17,7 @@ minimax-m3-benchmark · consistency.py
 输出 reports/consistency/consistency_report.md。
 """
 from __future__ import annotations
+
 import argparse
 import json
 import math
@@ -24,9 +25,7 @@ import os
 import re
 import statistics
 import sys
-import time
 import urllib.request
-from collections import Counter
 from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path

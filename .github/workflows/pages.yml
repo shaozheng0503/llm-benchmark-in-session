@@ -1,0 +1,63 @@
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+
+      - name: Run all benchmark scripts
+        run: |
+          python3 scripts/grade.py
+          python3 scripts/bench.py
+          python3 scripts/calibration.py
+          python3 scripts/difficulty.py
+          python3 scripts/failure_analysis.py --offline
+          python3 scripts/significance.py || true
+          python3 scripts/cost.py || true
+          python3 scripts/cost_quality.py || true
+
+      - name: Build index.html
+        run: |
+          cat > docs/index.md << 'EOF'
+          # MiniMax-M3 Benchmark Reports
+
+          See [README](../README.md) for the project description.
+
+          ## Latest Reports
+
+          - [Cases results](../reports/cases/cases_results.md)
+          - [Calibration](../reports/calibration/calibration_report.md)
+          - [Difficulty](../reports/difficulty/difficulty_report.md)
+          - [Bench](../reports/summary/bench_report.md)
+          - [Summary](../reports/summary/summary_report.md)
+          EOF
+
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

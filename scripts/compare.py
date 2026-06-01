@@ -29,16 +29,15 @@ A vs B 模型答案对比工具。两种工作模式：
         --judge-model gpt-4o
 """
 from __future__ import annotations
+
 import argparse
 import json
 import os
-import statistics
 import sys
 import time
 import urllib.request
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CFG = ROOT / "config" / "test_cases.json"

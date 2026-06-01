@@ -14,9 +14,9 @@ ECE 越低，模型越"知之为知之"（高置信度对应高准确率）。
     python3 scripts/calibration.py --answer-file raw_answers/23_calibration.md
 """
 from __future__ import annotations
+
 import argparse
 import json
-import math
 import re
 import sys
 from pathlib import Path

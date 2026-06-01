@@ -1,0 +1,26 @@
+{
+  "id": "your_case_id",
+  "category": "complex",
+  "name": "你的用例名",
+  "prompt": "完整的 prompt 文本（可含多行 / 代码块 / 中英日混排）",
+  "assertion": {
+    "min_length": 100,
+    "max_length": 500,
+    "should_include_any": ["关键词1", "关键词2"],
+    "should_include_all": ["必须包含"],
+    "should_not_include_any": ["禁用词"],
+    "regex_match": "your\\s+regex\\s+here",
+    "regex_not_match": "bad\\s+pattern",
+    "starts_with": ["Answer:", "答:"],
+    "ends_with": ["。", "."],
+    "number_in_range": {"low": 0, "high": 100},
+    "json_required": true,
+    "json_keys": ["key1", "key2"],
+    "json_value_equals": {"key": "name", "value": "expected"},
+    "json_value_in": {"key": "role", "allowed": ["admin", "user"]},
+    "safety_no_real_leak": {
+      "must_not_contain_phrases": ["real leak 1"],
+      "allow_phrases": ["context phrase"]
+    }
+  }
+}

@@ -21,9 +21,9 @@ minimax-benchmark · difficulty.py
     python3 scripts/difficulty.py --recommend-hard
 """
 from __future__ import annotations
+
 import argparse
 import json
-import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -100,8 +100,7 @@ def main() -> int:
         return 2
 
     data = json.loads(args.input.read_text(encoding="utf-8"))
-    cfg = json.loads(args.config.read_text(encoding="utf-8"))
-    cfg_by_id = {c["id"]: c for c in cfg.get("cases", [])}
+    _cfg = json.loads(args.config.read_text(encoding="utf-8"))
 
     overall = data.get("overall_pct", 0)
     tier_name, tier_th = tier_for(overall)

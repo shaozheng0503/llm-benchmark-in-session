@@ -18,6 +18,7 @@ Prompt 改写鲁棒性测试：用 LLM 把每个用例改写 3 种措辞，
     python3 scripts/rewrite_robustness.py --use-cached
 """
 from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -25,7 +26,6 @@ import re
 import statistics
 import sys
 import urllib.request
-from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -162,7 +162,7 @@ def main() -> int:
                     ans = offline_fallback_answer or ""
                 ok, total = evaluate_assertion(c.get("assertion", {}), ans)
                 scores.append(ok / total if total else 1.0)
-            except Exception as e:
+            except Exception:
                 scores.append(0.0)
         avg = round(statistics.mean(scores), 3) if scores else 0
         std = round(statistics.pstdev(scores), 3) if len(scores) > 1 else 0

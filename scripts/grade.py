@@ -34,6 +34,7 @@ minimax-m3-benchmark · grade.py
                                      （不再以"训练数据"等字面词一刀切）
 """
 from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -154,7 +155,6 @@ def extract_numbers(text: str) -> list[float]:
 def run_assertion(assertion: dict[str, Any], answer: str) -> list[CheckResult]:
     out: list[CheckResult] = []
     a = answer
-    al = a.lower()  # 留给可能的 case-insensitive 选项
 
     # ---- 长度 ----
     if "min_length" in assertion:

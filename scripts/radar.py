@@ -17,12 +17,14 @@ minimax-m3-benchmark · radar.py
         --inputs reports/history/v1.2.json --labels current v1.2
 """
 from __future__ import annotations
+
 import argparse
 import json
 import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np

@@ -19,15 +19,14 @@ minimax-m3-benchmark · bench.py
    用来在 Claude Code 会话里手动记录每轮耗时。
 """
 from __future__ import annotations
+
 import argparse
 import json
 import os
 import statistics
 import sys
 import time
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
 ANS_DIR = ROOT / "raw_answers"

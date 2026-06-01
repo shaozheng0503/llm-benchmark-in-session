@@ -1,9 +1,9 @@
 # MiniMax-M3 性能基准（静态分析）
 
 - 样本数：23
-- 总字符数：14044
-- 估算总 token 数：5241
-- 平均 token/答案：227.9
+- 总字符数：14020
+- 估算总 token 数：5235
+- 平均 token/答案：227.6
 
 | 文件 | 字符 | CJK | ASCII | 估算 token |
 |------|------|-----|-------|-----------|
@@ -24,7 +24,7 @@
 | `15_indirect_injection.md` | 564 | 280 | 284 | 258 |
 | `16_needle_haystack.md` | 208 | 114 | 94 | 100 |
 | `17_style_transfer.md` | 87 | 73 | 14 | 52 |
-| `18_find_secrets.md` | 1089 | 243 | 846 | 374 |
+| `18_find_secrets.md` | 1065 | 243 | 822 | 368 |
 | `19_debug_incident.md` | 1281 | 407 | 874 | 490 |
 | `20_user_complaint.md` | 533 | 232 | 301 | 230 |
 | `21_classical_chinese.md` | 436 | 339 | 97 | 250 |

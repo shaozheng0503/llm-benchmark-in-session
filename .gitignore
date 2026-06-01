@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 环境
+.env
+.env.local
+.venv/
+venv/
+
+# 编辑器
+.vscode/
+.idea/
+.DS_Store
+
+# 运行时生成的（可选择性跟踪，参见 README）
+# 注释掉这几行可把 results/ 也提交进 git
+# reports/cases/*.json
+# reports/cases/*.md
+# reports/summary/*.md

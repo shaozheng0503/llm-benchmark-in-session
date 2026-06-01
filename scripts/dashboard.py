@@ -78,6 +78,40 @@ if data:
 
 st.markdown("---")
 
+# ============== 3 句话总结 ==============
+def generate_summary(data, all_data):
+    if not data or not data.get("results"):
+        return "_（暂无数据）_"
+    overall = data.get("overall_pct", 0)
+    n_graded = data.get("n_graded", data.get("n_cases", 0))
+    by_cat: dict = {}
+    for r in data["results"]:
+        if r.get("error"):
+            continue
+        by_cat.setdefault(r["category"], []).append(r.get("pct", 0))
+    cat_avg = {c: sum(v) / len(v) for c, v in by_cat.items()} if by_cat else {}
+    history = [(k, v) for k, v in all_data.items() if v and v.get("overall_pct") is not None]
+    trend_msg = ""
+    if len(history) >= 2:
+        history.sort(key=lambda x: x[0])
+        prev = history[-2][1]["overall_pct"]
+        delta = overall - prev
+        trend_msg = ("与上一版本持平" if abs(delta) < 1
+                     else f"提升 {delta:+.1f}%" if delta > 0
+                     else f"退步 {delta:+.1f}%，建议检查")
+    best_cat = max(cat_avg, key=cat_avg.get) if cat_avg else "—"
+    worst_cat = min(cat_avg, key=cat_avg.get) if cat_avg else "—"
+    s1 = f"**{n_graded} 个用例总体得分 {overall}%**（{trend_msg or '首次跑测'}）。"
+    s2 = f"**最强项：{best_cat}**（{cat_avg.get(best_cat, 0):.0f}%）。"
+    s3 = f"**待提升：{worst_cat}**（{cat_avg.get(worst_cat, 0):.0f}%）"
+    return f"{s1}\n\n{s2}\n\n{s3}"
+
+
+st.subheader("📝 3 句话总结")
+st.markdown(generate_summary(data, all_data))
+
+st.markdown("---")
+
 # ============== Main panels ==============
 if data and data.get("results"):
     # === 用例得分表 ===

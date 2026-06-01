@@ -171,6 +171,83 @@ def render_http_report(samples: list[dict], prompt: str, model: str) -> str:
     return "\n".join(lines)
 
 
+# ----------------------------- TTFT 5 档评级 -----------------------------
+
+
+TTFT_TIERS = [
+    ("L1_100",   "短问短答",   100),
+    ("L2_500",   "中等问答",   500),
+    ("L3_2k",    "短文总结",  2000),
+    ("L4_8k",    "长文档",   8000),
+    ("L5_32k",   "超长上下文", 32000),
+]
+
+
+def rate_latency(ms: float) -> str:
+    """用户感知评级。"""
+    if ms < 500:
+        return "⚡ 瞬时"
+    if ms < 2000:
+        return "✅ 可接受"
+    if ms < 5000:
+        return "⚠️ 慢"
+    return "❌ 不可用"
+
+
+def ttft_bench(base: str, key: str, model: str, timeout: float = 60.0) -> list[dict]:
+    """5 档 prompt 长度各跑 1 次，输出延迟 + 评级。"""
+    results = []
+    for tag, desc, chars in TTFT_TIERS:
+        # 构造指定长度的 prompt（用"请总结以下内容"+ 重复文本）
+        filler = "在此输入你要测的文本。" * (chars // 8)
+        prompt = f"用一句话总结：{filler[:chars]}"
+        t0 = time.perf_counter()
+        try:
+            ans = call_chat(base, key, model, prompt, timeout=timeout)
+            elapsed = (time.perf_counter() - t0) * 1000
+            results.append({
+                "tier": tag, "desc": desc, "target_chars": chars,
+                "elapsed_ms": round(elapsed, 1), "rating": rate_latency(elapsed),
+                "ans_chars": len(ans), "status": "ok",
+            })
+        except Exception as e:
+            elapsed = (time.perf_counter() - t0) * 1000
+            results.append({
+                "tier": tag, "desc": desc, "target_chars": chars,
+                "elapsed_ms": round(elapsed, 1), "rating": "—",
+                "ans_chars": 0, "status": f"error: {e}",
+            })
+    return results
+
+
+def render_ttft_report(results: list[dict], model: str) -> str:
+    lines = [
+        "# MiniMax-M3 TTFT 5 档评级报告\n",
+        f"- 模型：`{model}`",
+        "- 5 档 prompt 长度：100 / 500 / 2k / 8k / 32k 字符\n",
+        "## 逐档结果\n",
+        "| 档位 | 描述 | 目标字符 | 端到端延迟 | 评级 | 答案长度 |",
+        "|------|------|----------|-----------|------|---------|",
+    ]
+    for r in results:
+        lines.append(
+            f"| {r['tier']} | {r['desc']} | {r['target_chars']} "
+            f"| {r['elapsed_ms']}ms | {r['rating']} | {r['ans_chars']} |"
+        )
+    ok = [r for r in results if r["status"] == "ok"]
+    if ok:
+        lines.append(f"\n**全部通过**：{len(ok)}/{len(results)}")
+        lines.append("\n## 用户感知汇总\n")
+        for r in ok:
+            lines.append(f"- **{r['tier']}（{r['desc']}）**：{r['rating']}（{r['elapsed_ms']}ms）")
+    bad = [r for r in results if r["status"] != "ok"]
+    if bad:
+        lines.append("\n## 失败")
+        for r in bad:
+            lines.append(f"- {r['tier']}: {r['status']}")
+    return "\n".join(lines)
+
+
 # ----------------------------- 手动 times 模式 -----------------------------
 
 
@@ -211,6 +288,8 @@ def main() -> int:
 
     # HTTP 模式
     p.add_argument("--http", action="store_true")
+    p.add_argument("--ttft", action="store_true",
+                   help="TTFT 5 档评级（100/500/2k/8k/32k 字符）")
     p.add_argument("--base", default=os.environ.get("LLM_API_BASE", ""))
     p.add_argument("--key", default=os.environ.get("LLM_API_KEY", ""))
     p.add_argument("--model", default=os.environ.get("BENCH_MODEL", "minimax-m3"))
@@ -224,7 +303,13 @@ def main() -> int:
 
     args = p.parse_args()
 
-    if args.http:
+    if args.ttft:
+        if not args.base or not args.key:
+            print("ERROR: --ttft 模式需要 --base 与 --key", file=sys.stderr)
+            return 2
+        results = ttft_bench(args.base, args.key, args.model, args.timeout)
+        md = render_ttft_report(results, args.model)
+    elif args.http:
         if not args.base or not args.key:
             print("ERROR: --http 模式需要 --base 与 --key（或 env LLM_API_BASE/LLM_API_KEY）",
                   file=sys.stderr)

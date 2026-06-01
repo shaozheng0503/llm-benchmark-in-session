@@ -70,11 +70,87 @@ def collect_usage() -> list[dict]:
     return usages
 
 
+def workflow_cost(workflow: dict) -> dict:
+    """根据工作流描述算月成本。
+    workflow 格式: {
+        "model": "gpt-4o-mini",
+        "monthly_calls": 1000,
+        "avg_input_tokens": 500,
+        "avg_output_tokens": 500,
+    }
+    """
+    model = workflow["model"]
+    calls = workflow["monthly_calls"]
+    pt = workflow["avg_input_tokens"]
+    ct = workflow["avg_output_tokens"]
+    per_call = calc_cost(model, pt, ct)
+    return {
+        "model": model, "monthly_calls": calls,
+        "per_call_usd": round(per_call, 6),
+        "monthly_usd": round(per_call * calls, 2),
+        "yearly_usd": round(per_call * calls * 12, 2),
+    }
+
+
+def render_workflow_report(workflow: dict) -> str:
+    r = workflow_cost(workflow)
+    lines = [
+        "# 真实工作流成本估算\n",
+        f"- 模型：`{r['model']}`",
+        f"- 每月调用：{r['monthly_calls']:,} 次",
+        f"- 平均输入：{workflow['avg_input_tokens']} tokens",
+        f"- 平均输出：{workflow['avg_output_tokens']} tokens",
+        f"- **单次成本：${r['per_call_usd']:.6f}**",
+        f"- **月度成本：${r['monthly_usd']:.2f}**",
+        f"- **年度成本：${r['yearly_usd']:.2f}**\n",
+    ]
+    # 横向对比（其他同档位模型）
+    same_tier = {
+        "gpt-4o-mini":  ["gpt-4o-mini", "gemini-1.5-flash", "deepseek-chat", "qwen-2.5-72b"],
+        "gpt-4o":       ["gpt-4o", "claude-sonnet-4-5", "gemini-1.5-pro", "minimax-m3"],
+        "claude-opus-4-8": ["claude-opus-4-8", "o1", "gpt-4o"],
+    }.get(r["model"], [r["model"]])
+    lines.append("## 同档位模型对比\n")
+    lines.append("| 模型 | 月成本 | 年成本 | 倍数 |")
+    lines.append("|------|--------|--------|------|")
+    for m in same_tier:
+        if m not in PRICING:
+            continue
+        w = {"model": m, "monthly_calls": workflow["monthly_calls"],
+             "avg_input_tokens": workflow["avg_input_tokens"],
+             "avg_output_tokens": workflow["avg_output_tokens"]}
+        wr = workflow_cost(w)
+        ratio = wr["monthly_usd"] / r["monthly_usd"] if r["monthly_usd"] > 0 else 0
+        marker = " ← 当前" if m == r["model"] else ""
+        lines.append(
+            f"| {m} | ${wr['monthly_usd']:.2f} | ${wr['yearly_usd']:.2f} "
+            f"| {ratio:.2f}x{marker} |"
+        )
+
+    lines.append("\n## 建议")
+    lines.append(f"- 当前模型 `{r['model']}` 月成本 ${r['monthly_usd']:.2f}，可接受。")
+    if r["monthly_usd"] > 100:
+        lines.append("- 月成本 > $100，建议评估同档位更便宜的模型。")
+    return "\n".join(lines)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     p.add_argument("--monthly-cap-usd", type=float, default=50.0)
+    p.add_argument("--workflow", type=str, default=None,
+                   help="工作流 JSON：'{\"model\":\"gpt-4o-mini\",\"monthly_calls\":1000,"
+                        "\"avg_input_tokens\":500,\"avg_output_tokens\":500}'")
     p.add_argument("--out", type=Path, default=OUT_DIR / "cost_report.md")
     args = p.parse_args()
+
+    # 工作流模式
+    if args.workflow:
+        wf = json.loads(args.workflow)
+        args.out.write_text(render_workflow_report(wf), encoding="utf-8")
+        r = workflow_cost(wf)
+        print(f"wrote {args.out}")
+        print(f"{r['model']}: 月 ${r['monthly_usd']:.2f} / 年 ${r['yearly_usd']:.2f}")
+        return 0
 
     usages = collect_usage()
     by_model: dict[str, dict] = defaultdict(
